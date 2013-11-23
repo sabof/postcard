@@ -42,7 +42,7 @@
                     ))
          ( ov (make-overlay (point-min) (point-max))))
     (overlay-put ov 'display string)
-    (overlay-put ov 'window 'selected-window)
+    (overlay-put ov 'window (selected-window))
     (wcn/acons (selected-window)
                ov
                window-change-notify-window-alist)
@@ -57,6 +57,8 @@
   (let ((inhibit-read-only t))
     (erase-buffer)
     (insert "$\n"))
+  (setq-local auto-window-vscroll nil)
+  (setq-local auto-window- nil)
   (add-hook 'window-configuration-change-hook
             'window-change-notify-hook nil t)
   (wcn/redraw-all-windows))
@@ -71,8 +73,10 @@
            (insert " ")
            (cl-loop repeat (- width 2) do
                     (insert "$"))
-           (insert "\n")
-           ))
+           (insert "\n"))
+  (add-text-properties
+   (point-min) (point-max)
+   (list 'face `(:foreground ,(es-color-random-hex)))))
 
 (define-derived-mode $-mode window-change-notify-mode
     "$" "$"
