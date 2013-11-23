@@ -44,8 +44,7 @@
          ( alist (or (cdr (assq (selected-window)
                                 window-change-notify-window-alist))
                      (let* (( temp-overlay (make-overlay (point-min) (point-max)))
-                            ( temp-alist (list (cons 'window (selected-window))
-                                               (cons 'width (window-width))
+                            ( temp-alist (list (cons 'width (window-width))
                                                (cons 'height (window-height))
                                                (cons 'overlay temp-overlay)
                                                )))
@@ -85,12 +84,13 @@
             'window-change-notify-hook nil t)
   (add-hook 'post-command-hook
             'wcn/post-command-hook
-            nil t)
-  (wcn/redraw-all-windows))
+            nil t))
 
 ;; -----------------------------------------------------------------------------
-;; Example
+;; Examples
 ;; -----------------------------------------------------------------------------
+
+;; $
 
 (defun $-fill ()
   (let ((width (window-body-width))
@@ -108,6 +108,41 @@
 (define-derived-mode $-mode window-change-notify-mode
     "$" "$"
   (setq window-change-notify-function '$-fill)
+  (wcn/redraw-all-windows))
+
+;; Picture
+
+(defvar picture-card-picutre-file
+  (concat (file-name-directory
+           (or load-file-name buffer-file-name))
+          "1980-mad-max-poster2.jpg"))
+
+(defun picture-card-fill ()
+  (let* (( window-width (es-window-inside-pixel-width))
+         ( window-height (es-window-inside-pixel-height))
+         ( image-type (image-type picture-card-picutre-file nil nil))
+         ( image-spec (list 'image :type image-type :file picture-card-picutre-file))
+         ( image-dimensions (image-size image-spec))
+         ( x (/ (- window-width (car image-dimensions)) 2))
+         ( y (/ (- window-height (cdr image-dimensions)) 2)))
+
+    ;; This should just work
+
+    ;; (let ((inhibit-read-only t))
+    ;;   (goto-char (point-min))
+    ;;   (insert (propertize " " 'display '(space :height (70) ))
+    ;;           (propertize "\n" 'line-height t))
+    ;;   nil)
+
+    ;; This should also just work
+
+    ;; (insert-image image-spec)
+
+    ))
+
+(define-derived-mode picuture-card-mode window-change-notify-mode
+    "Picture" "Picture"
+  (setq window-change-notify-function 'picture-card-fill)
   (wcn/redraw-all-windows))
 
 (provide 'window-change-notify)
