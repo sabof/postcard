@@ -1,21 +1,32 @@
-(defvar window-change-notify-function 'ignore)
-(defvar window-change-notify-format 'characters)
+(defvar-local window-change-notify-function 'ignore)
+(defvar-local window-change-notify-format 'characters)
+(defvar-local window-change-notify-window-alist nil)
 
-(defun window-change-notify-hook ()
-  (apply 'window-change-notify-function
-         (if (eq window-change-notify-format 'pixels)
-             (list (es-window-inside-pixel-width)
-                   (es-window-inside-pixel-height))
-           (list (window-body-width)
-                 (window-body-height)))))
+;; -----------------------------------------------------------------------------
+;; Utils
+;; -----------------------------------------------------------------------------
+
+(defmacro wcn/acons (key value place)
+  `(let ((existing (assoc ',key ,place)))
+     (if existing
+         (setcdr existing ,value)
+       (setq ,place
+             (acons ',key ,value ,place)))))
+
 
 ;; -----------------------------------------------------------------------------
 
-(define-minor-mode window-change-notify-minor-mode
-    nil nil nil nil
-    (if window-change-notify
-        (add-hook 'window-configuration-change-hook 'window-change-notify-hook nil t)
-      (remove-hook 'window-configuration-change-hook 'window-change-notify-hook t)))
+(defun window-change-notify-hook ()
+  (let (( string (with-temp-buffer
+                   (apply 'window-change-notify-function
+                          (if (eq window-change-notify-format 'pixels)
+                              (list (es-window-inside-pixel-width)
+                                    (es-window-inside-pixel-height))
+                            (list (window-body-width)
+                                  (window-body-height))))
+                   (buffer-string))))
+
+    ))
 
 ;; -----------------------------------------------------------------------------
 
@@ -24,9 +35,13 @@
     "Window change notify mode"
   (erase-buffer)
   (insert "$\n")
-  (add-hook 'window-configuration-change-hook 'window-change-notify-hook nil t)
+  (add-hook 'window-configuration-change-hook
+            'window-change-notify-hook nil t)
+  (window-change-notify-hook)
   )
 
+;; -----------------------------------------------------------------------------
+;; Example
 ;; -----------------------------------------------------------------------------
 
 (defun $-fill (width height)
@@ -39,12 +54,12 @@
            (insert "\n")
            ))
 
-(define-minor-mode $-mode
-    nil nil nil nil
-    (setq-local window-change-notify-function)
-    (if $-mode
-        (window-change-notify)
-      (window-change-notify -1)))
+(define-derived-mode $-mode window-change-notify-mode
+    "$" "$"
+  (setq window-change-notify-function)
+  (if $-mode
+      (window-change-notify)
+    (window-change-notify -1)))
 
 (provide 'window-change-notify)
 ;;; win-change-notify.el ends here
