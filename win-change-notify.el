@@ -1,5 +1,4 @@
 ;; -*- lexical-binding: t -*-
-
 (require 'cl-lib)
 
 (defvar-local window-change-notify-function 'ignore)
@@ -12,7 +11,7 @@
 (defvar window-change-notify-current-newline-overlay nil)
 
 ;; -----------------------------------------------------------------------------
-;; Utils
+;; Window Change Notify
 ;; -----------------------------------------------------------------------------
 
 (defun wcn/clear-overlays ()
@@ -46,7 +45,32 @@
   (interactive)
   (funcall major-mode))
 
-;; -----------------------------------------------------------------------------
+(defun window-change-notify-set-top-margin (height &optional pixels)
+  (cl-assert (and window-change-notify-current-newline-overlay
+                  window-change-notify-current-top-overlay))
+  (if (<= height 0)
+      (progn
+        (overlay-put window-change-notify-current-top-overlay
+                     'invisible t)
+        (overlay-put window-change-notify-current-newline-overlay
+                     'invisible t))
+    (overlay-put window-change-notify-current-top-overlay
+                 'display `(space :height ,(if pixels (list height) height)))
+    (overlay-put window-change-notify-current-top-overlay
+                 'invisible nil)
+    (overlay-put window-change-notify-current-newline-overlay
+                 'invisible nil)
+    ))
+
+(defun window-change-notify-set-left-margin (width &optional pixels)
+  (cl-assert window-change-notify-current-left-overlay)
+  (if (<= width 0)
+      (overlay-put window-change-notify-current-left-overlay
+                   'invisible t)
+    (overlay-put window-change-notify-current-left-overlay
+                 'display `(space :width ,(if pixels (list width) width)))
+    (overlay-put window-change-notify-current-left-overlay
+                 'invisible nil)))
 
 (cl-defun window-change-notify-hook (&optional force)
   ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
@@ -120,8 +144,6 @@
     (set-window-start nil (point-min))
     ))
 
-;; -----------------------------------------------------------------------------
-
 (define-derived-mode window-change-notify-mode special-mode
     "Window change notify mode"
     "Window change notify mode"
@@ -129,13 +151,13 @@
     (erase-buffer)
     (insert "$\n$\n"))
   (setq-local auto-window-vscroll nil)
-  ;; (setq-local cursor-type nil)
+  (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
             'window-change-notify-hook nil t)
   (local-set-key (kbd "g") 'wcn/revert)
-  ;; (add-hook 'post-command-hook
-  ;;           'wcn/post-command-hook
-  ;;           nil t)
+  (add-hook 'post-command-hook
+            'wcn/post-command-hook
+            nil t)
   )
 
 ;; -----------------------------------------------------------------------------
@@ -177,43 +199,11 @@
          ( image-type (image-type picture-card-picutre-file nil nil))
          ( image-spec (list 'image :type image-type :file picture-card-picutre-file))
          ( image-dimensions (image-size image-spec t))
-         ( x (max 0 (/ (- window-width (car image-dimensions)) 2)))
-         ( y (max 0 (/ (- window-height (cdr image-dimensions)) 2))))
-    ;; (debug nil image-dimensions)
-    ;; This should just work
-
-    ;; (let ((inhibit-read-only t))
-    ;;   (goto-char (point-min))
-    ;;   (insert (propertize " " 'display '(space :height (70) ))
-    ;;           (propertize "\n" 'line-height t))
-    ;;   nil)
-
-    ;; This should also just work
-    window-change-notify-current-newline-overlay
-    window-change-notify-current-top-overlay
-    (overlay-put window-change-notify-current-left-overlay
-                 'display `(space :width (,x)))
-    (overlay-put window-change-notify-current-left-overlay
-                 'invisible nil)
-
-    (if (zerop y)
-        (progn
-          (overlay-put window-change-notify-current-top-overlay
-                       'invisible t)
-          (overlay-put window-change-notify-current-newline-overlay
-                       'invisible t))
-      (progn
-        (overlay-put window-change-notify-current-top-overlay
-                     'display `(space :height (,y)))
-        (overlay-put window-change-notify-current-top-overlay
-                     'invisible nil)
-        (overlay-put window-change-notify-current-newline-overlay
-                     'invisible nil))
-      )
-    ;; (insert-image image-spec)
-    image-spec
-    ;; "x"
-    ))
+         ( x (/ (- window-width (car image-dimensions)) 2))
+         ( y (/ (- window-height (cdr image-dimensions)) 2)))
+    (window-change-notify-set-top-margin y t)
+    (window-change-notify-set-left-margin x t)
+    image-spec))
 
 (define-derived-mode picuture-card-mode window-change-notify-mode
     "Picture" "Picture"
