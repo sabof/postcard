@@ -6,6 +6,10 @@
 (defvar-local window-change-notify-format 'characters)
 (defvar-local window-change-notify-window-alist nil)
 
+(defvar window-change-notify-current-main-overlay nil)
+(defvar window-change-notify-current-left-overlay nil)
+(defvar window-change-notify-current-right-overlay nil)
+
 ;; -----------------------------------------------------------------------------
 ;; Utils
 ;; -----------------------------------------------------------------------------
@@ -20,7 +24,9 @@
          (lambda (pair)
            (or (window-live-p (car pair))
                (progn
-                 (delete-overlay (cdr (assq 'overlay (cdr pair))))
+                 (delete-overlay (cdr (assq 'main-overlay (cdr pair))))
+                 (delete-overlay (cdr (assq 'top-overlay (cdr pair))))
+                 (delete-overlay (cdr (assq 'left-overlay (cdr pair))))
                  nil)))
          window-change-notify-window-alist)))
 
@@ -34,6 +40,10 @@
   (deactivate-mark)
   (set-window-start nil (point-min)))
 
+(defun wcn/revert ()
+  (interactive)
+  (funcall major-mode))
+
 ;; -----------------------------------------------------------------------------
 
 (cl-defun window-change-notify-hook (&optional force)
@@ -43,30 +53,58 @@
          ( do-redraw force)
          ( alist (or (cdr (assq (selected-window)
                                 window-change-notify-window-alist))
-                     (let* (( temp-overlay (make-overlay (point-min) (point-max)))
+                     (let* (( top-overlay-offset 1)
+                            ( left-overlay-offset 3)
+                            ( main-overlay-offset 4)
+                            ( temp-top-overlay
+                              (make-overlay top-overlay-offset
+                                            (1+ top-overlay-offset)))
+                            ( temp-left-overlay
+                              (make-overlay left-overlay-offset
+                                            (1+ left-overlay-offset)))
+                            ( temp-main-overlay
+                              (make-overlay main-overlay-offset
+                                            (1+ main-overlay-offset)))
                             ( temp-alist (list (cons 'width (window-width))
                                                (cons 'height (window-height))
-                                               (cons 'overlay temp-overlay)
+                                               (cons 'main-overlay temp-main-overlay)
+                                               (cons 'left-overlay temp-left-overlay)
+                                               (cons 'top-overlay temp-top-overlay)
                                                )))
-                       (overlay-put temp-overlay 'window (selected-window))
+
+                       (overlay-put temp-main-overlay 'window (selected-window))
+
+                       (overlay-put temp-top-overlay 'window (selected-window))
+                       (overlay-put temp-left-overlay 'window (selected-window))
+
+                       (overlay-put temp-top-overlay 'display `(space :height 1 :width 1))
+                       (overlay-put temp-left-overlay 'display `(space :height 1 :width 1))
+
+                       ;; (overlay-put temp-top-overlay 'invisible t)
+                       ;; (overlay-put temp-left-overlay 'invisible t)
+
                        (setq window-change-notify-window-alist
                              (cl-acons (selected-window) temp-alist
                                        window-change-notify-window-alist))
                        (setq do-redraw t)
                        temp-alist
                        )))
-         ( ov (cdr (assq 'overlay alist))))
+         ( ov (cdr (assq 'main-overlay alist))))
     (unless do-redraw
       (setq do-redraw
             (or (not (equal (cdr (assq 'height alist)) (window-height)))
                 (not (equal (cdr (assq 'width alist)) (window-width))))))
     (when do-redraw
-      (overlay-put ov 'display
-                   (with-temp-buffer
-                    (funcall redraw-func)
-                    (buffer-string)))
-      (setf (cdr (assq 'height alist)) (window-height))
-      (setf (cdr (assq 'width alist)) (window-width)))
+      (let* (( window-change-notify-current-main-overlay ov)
+             ( window-change-notify-current-left-overlay
+               (cdr (assq 'left-overlay alist)))
+             ( window-change-notify-current-right-overlay
+               (cdr (assq 'right-overlay alist)))
+             ( result (funcall redraw-func)))
+        (when result
+          (overlay-put ov 'display result))
+        (setf (cdr (assq 'height alist)) (window-height))
+        (setf (cdr (assq 'width alist)) (window-width))))
     (set-window-start nil (point-min))
     ))
 
@@ -77,14 +115,18 @@
     "Window change notify mode"
   (let ((inhibit-read-only t))
     (erase-buffer)
-    (insert "$\n"))
+    (insert "$"
+            (propertize "\n" 'line-height t)
+            "$\n"))
   (setq-local auto-window-vscroll nil)
-  (setq-local cursor-type nil)
+  ;; (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
             'window-change-notify-hook nil t)
-  (add-hook 'post-command-hook
-            'wcn/post-command-hook
-            nil t))
+  (local-set-key (kbd "g") 'wcn/revert)
+  ;; (add-hook 'post-command-hook
+  ;;           'wcn/post-command-hook
+  ;;           nil t)
+  )
 
 ;; -----------------------------------------------------------------------------
 ;; Examples
@@ -93,17 +135,19 @@
 ;; $
 
 (defun $-fill ()
-  (let ((width (window-body-width))
-        (height (window-body-height)))
-    (insert "\n")
-    (cl-loop repeat (- height 2) do
-             (insert " ")
-             (cl-loop repeat (- width 2) do
-                      (insert "$"))
-             (insert "\n"))
-    (add-text-properties
-     (point-min) (point-max)
-     (list 'face `(:foreground ,(es-color-random-hex))))))
+  (with-temp-buffer
+    (let ((width (window-body-width))
+          (height (window-body-height)))
+      (insert "\n")
+      (cl-loop repeat (- height 2) do
+               (insert " ")
+               (cl-loop repeat (- width 2) do
+                        (insert "$"))
+               (insert "\n"))
+      (add-text-properties
+       (point-min) (point-max)
+       (list 'face `(:foreground ,(es-color-random-hex)))))
+    (buffer-string)))
 
 (define-derived-mode $-mode window-change-notify-mode
     "$" "$"
@@ -137,7 +181,7 @@
     ;; This should also just work
 
     ;; (insert-image image-spec)
-
+    (insert "x")
     ))
 
 (define-derived-mode picuture-card-mode window-change-notify-mode
