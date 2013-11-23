@@ -1,4 +1,7 @@
 ;; -*- lexical-binding: t -*-
+
+(require 'cl-lib)
+
 (defvar-local window-change-notify-function 'ignore)
 (defvar-local window-change-notify-format 'characters)
 (defvar-local window-change-notify-window-alist nil)
@@ -6,15 +9,6 @@
 ;; -----------------------------------------------------------------------------
 ;; Utils
 ;; -----------------------------------------------------------------------------
-
-(defmacro wcn/acons (key value place)
-  `(let ((existing (assoc ,key ,place)))
-     (if existing
-         (progn
-           (when (overlayp (cdr existing))
-             (delete-overlay (cdr existing)))
-           (setcdr existing ,value))
-       (setq ,place (cl-acons ,key ,value ,place)))))
 
 (defun wcn/clear-overlays ()
   (delete-all-overlays)
@@ -36,15 +30,16 @@
     (with-selected-window window
       (window-change-notify-hook t))))
 
+(defun wcn/post-command-hook ()
+  (deactivate-mark)
+  (set-window-start nil (point-min)))
+
 ;; -----------------------------------------------------------------------------
 
 (cl-defun window-change-notify-hook (&optional force)
   ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
   (wcn/cleanup)
   (let* (( redraw-func window-change-notify-function)
-         ( string (with-temp-buffer
-                    (funcall redraw-func)
-                    (buffer-string)))
          ( do-redraw force)
          ( alist (or (cdr (assq (selected-window)
                                 window-change-notify-window-alist))
@@ -67,10 +62,12 @@
             (or (not (equal (cdr (assq 'height alist)) (window-height)))
                 (not (equal (cdr (assq 'width alist)) (window-width))))))
     (when do-redraw
-      (overlay-put ov 'display string)
+      (overlay-put ov 'display
+                   (with-temp-buffer
+                    (funcall redraw-func)
+                    (buffer-string)))
       (setf (cdr (assq 'height alist)) (window-height))
-      (setf (cdr (assq 'width alist)) (window-width))
-      (overlay-put ov 'width string))
+      (setf (cdr (assq 'width alist)) (window-width)))
     (set-window-start nil (point-min))
     ))
 
@@ -86,6 +83,9 @@
   (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
             'window-change-notify-hook nil t)
+  (add-hook 'post-command-hook
+            'wcn/post-command-hook
+            nil t)
   (wcn/redraw-all-windows))
 
 ;; -----------------------------------------------------------------------------
