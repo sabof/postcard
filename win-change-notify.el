@@ -8,7 +8,8 @@
 
 (defvar window-change-notify-current-main-overlay nil)
 (defvar window-change-notify-current-left-overlay nil)
-(defvar window-change-notify-current-right-overlay nil)
+(defvar window-change-notify-current-top-overlay nil)
+(defvar window-change-notify-current-newline-overlay nil)
 
 ;; -----------------------------------------------------------------------------
 ;; Utils
@@ -24,8 +25,9 @@
          (lambda (pair)
            (or (window-live-p (car pair))
                (progn
-                 (delete-overlay (cdr (assq 'main-overlay (cdr pair))))
                  (delete-overlay (cdr (assq 'top-overlay (cdr pair))))
+                 (delete-overlay (cdr (assq 'newline-overlay (cdr pair))))
+                 (delete-overlay (cdr (assq 'main-overlay (cdr pair))))
                  (delete-overlay (cdr (assq 'left-overlay (cdr pair))))
                  nil)))
          window-change-notify-window-alist)))
@@ -54,11 +56,15 @@
          ( alist (or (cdr (assq (selected-window)
                                 window-change-notify-window-alist))
                      (let* (( top-overlay-offset 1)
+                            ( newline-overlay-offset 2)
                             ( left-overlay-offset 3)
                             ( main-overlay-offset 4)
                             ( temp-top-overlay
                               (make-overlay top-overlay-offset
                                             (1+ top-overlay-offset)))
+                            ( temp-newline-overlay
+                              (make-overlay newline-overlay-offset
+                                            (1+ newline-overlay-offset)))
                             ( temp-left-overlay
                               (make-overlay left-overlay-offset
                                             (1+ left-overlay-offset)))
@@ -69,6 +75,7 @@
                                                (cons 'height (window-height))
                                                (cons 'main-overlay temp-main-overlay)
                                                (cons 'left-overlay temp-left-overlay)
+                                               (cons 'newline-overlay temp-newline-overlay)
                                                (cons 'top-overlay temp-top-overlay)
                                                )))
 
@@ -76,12 +83,15 @@
 
                        (overlay-put temp-top-overlay 'window (selected-window))
                        (overlay-put temp-left-overlay 'window (selected-window))
+                       (overlay-put temp-newline-overlay 'window (selected-window))
 
-                       (overlay-put temp-top-overlay 'display `(space :height 1 :width 1))
-                       (overlay-put temp-left-overlay 'display `(space :height 1 :width 1))
+                       ;; (overlay-put temp-top-overlay 'display `(space :height (51) :width 1))
+                       ;; (overlay-put temp-left-overlay 'display `(space :height 1 :width (51)))
 
-                       ;; (overlay-put temp-top-overlay 'invisible t)
-                       ;; (overlay-put temp-left-overlay 'invisible t)
+                       (overlay-put temp-top-overlay 'invisible t)
+                       (overlay-put temp-left-overlay 'invisible t)
+                       (overlay-put temp-newline-overlay 'invisible t)
+                       (overlay-put temp-newline-overlay 'line-height t)
 
                        (setq window-change-notify-window-alist
                              (cl-acons (selected-window) temp-alist
@@ -98,8 +108,10 @@
       (let* (( window-change-notify-current-main-overlay ov)
              ( window-change-notify-current-left-overlay
                (cdr (assq 'left-overlay alist)))
-             ( window-change-notify-current-right-overlay
-               (cdr (assq 'right-overlay alist)))
+             ( window-change-notify-current-top-overlay
+               (cdr (assq 'top-overlay alist)))
+             ( window-change-notify-current-newline-overlay
+               (cdr (assq 'newline-overlay alist)))
              ( result (funcall redraw-func)))
         (when result
           (overlay-put ov 'display result))
@@ -115,9 +127,7 @@
     "Window change notify mode"
   (let ((inhibit-read-only t))
     (erase-buffer)
-    (insert "$"
-            (propertize "\n" 'line-height t)
-            "$\n"))
+    (insert "$\n$\n"))
   (setq-local auto-window-vscroll nil)
   ;; (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
@@ -166,10 +176,10 @@
          ( window-height (es-window-inside-pixel-height))
          ( image-type (image-type picture-card-picutre-file nil nil))
          ( image-spec (list 'image :type image-type :file picture-card-picutre-file))
-         ( image-dimensions (image-size image-spec))
-         ( x (/ (- window-width (car image-dimensions)) 2))
-         ( y (/ (- window-height (cdr image-dimensions)) 2)))
-
+         ( image-dimensions (image-size image-spec t))
+         ( x (max 0 (/ (- window-width (car image-dimensions)) 2)))
+         ( y (max 0 (/ (- window-height (cdr image-dimensions)) 2))))
+    ;; (debug nil image-dimensions)
     ;; This should just work
 
     ;; (let ((inhibit-read-only t))
@@ -179,9 +189,30 @@
     ;;   nil)
 
     ;; This should also just work
+    window-change-notify-current-newline-overlay
+    window-change-notify-current-top-overlay
+    (overlay-put window-change-notify-current-left-overlay
+                 'display `(space :width (,x)))
+    (overlay-put window-change-notify-current-left-overlay
+                 'invisible nil)
 
+    (if (zerop y)
+        (progn
+          (overlay-put window-change-notify-current-top-overlay
+                       'invisible t)
+          (overlay-put window-change-notify-current-newline-overlay
+                       'invisible t))
+      (progn
+        (overlay-put window-change-notify-current-top-overlay
+                     'display `(space :height (,y)))
+        (overlay-put window-change-notify-current-top-overlay
+                     'invisible nil)
+        (overlay-put window-change-notify-current-newline-overlay
+                     'invisible nil))
+      )
     ;; (insert-image image-spec)
-    (insert "x")
+    image-spec
+    ;; "x"
     ))
 
 (define-derived-mode picuture-card-mode window-change-notify-mode
