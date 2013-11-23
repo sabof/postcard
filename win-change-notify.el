@@ -34,15 +34,18 @@
   (wcn/clear-overlays)
   (cl-dolist (window (get-buffer-window-list nil nil t))
     (with-selected-window window
-      (window-change-notify-hook))))
+      (window-change-notify-hook t))))
 
 ;; -----------------------------------------------------------------------------
 
 (cl-defun window-change-notify-hook (&optional force)
+  ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
+  (wcn/cleanup)
   (let* (( redraw-func window-change-notify-function)
          ( string (with-temp-buffer
                     (funcall redraw-func)
                     (buffer-string)))
+         ( do-redraw force)
          ( alist (or (cdr (assq (selected-window)
                                 window-change-notify-window-alist))
                      (let* (( temp-overlay (make-overlay (point-min) (point-max)))
@@ -55,17 +58,19 @@
                        (setq window-change-notify-window-alist
                              (cl-acons (selected-window) temp-alist
                                        window-change-notify-window-alist))
+                       (setq do-redraw t)
                        temp-alist
                        )))
          ( ov (cdr (assq 'overlay alist))))
-    (unless (and (not force)
-                 (= (cdr (assq 'height alist)) (window-height))
-                 (= (cdr (assq 'width alist)) (window-width)))
+    (unless do-redraw
+      (setq do-redraw
+            (or (not (equal (cdr (assq 'height alist)) (window-height)))
+                (not (equal (cdr (assq 'width alist)) (window-width))))))
+    (when do-redraw
       (overlay-put ov 'display string)
       (setf (cdr (assq 'height alist)) (window-height))
       (setf (cdr (assq 'width alist)) (window-width))
-      (overlay-put ov 'width string)
-      )
+      (overlay-put ov 'width string))
     (set-window-start nil (point-min))
     ))
 
