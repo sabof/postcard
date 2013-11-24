@@ -221,7 +221,7 @@
 
 ;; $
 
-(defun $-fill ()
+(defun postcard-$-fill ()
   (with-temp-buffer
     (let ((width (window-body-width))
           (height (window-body-height)))
@@ -236,21 +236,14 @@
        (list 'face `(:foreground ,(es-color-random-hex)))))
     (buffer-string)))
 
-(define-derived-mode $-mode postcard-mode
+(define-derived-mode postcard-$-mode postcard-mode
     "$" "$"
-  (setq postcard-function '$-fill)
+  (setq postcard-function 'postcard-$-fill)
   (postcard--redraw-all-windows))
-
-
-(defun $ ()
-  (interactive)
-  (with-current-buffer (get-buffer-create "*$*")
-    ($-mode)
-    (pop-to-buffer (current-buffer))))
 
 ;; Picture
 
-(defvar picture-card-picutre
+(defvar postcard-picture-picutre
   (let* ((root (file-name-directory
                 (or load-file-name buffer-file-name))))
     (lambda ()
@@ -260,12 +253,12 @@
             (concat root "logo-light.png"))
         (error (concat root "logo-light.png"))))))
 
-(defun picture-card-fill ()
+(defun postcard-picture-fill ()
   (let* (( window-width (es-window-inside-pixel-width))
          ( window-height (es-window-inside-pixel-height))
-         ( image-file (if (stringp picture-card-picutre)
-                          picture-card-picutre
-                        (funcall picture-card-picutre)))
+         ( image-file (if (stringp postcard-picture-picutre)
+                          postcard-picture-picutre
+                        (funcall postcard-picture-picutre)))
          ( image-type (image-type image-file nil nil))
          ( image-spec (list 'image
                             :type image-type
@@ -282,16 +275,10 @@
     (postcard-set-left-margin x t)
     image-spec))
 
-(define-derived-mode picture-card-mode postcard-mode
+(define-derived-mode postcard-picture-mode postcard-mode
     "Picture" "Picture"
-  (setq postcard-function 'picture-card-fill)
+  (setq postcard-function 'postcard-picture-fill)
   (postcard--redraw-all-windows))
-
-(defun picuture-card ()
-  (interactive)
-  (with-current-buffer (get-buffer-create "*picture-card*")
-    (picuture-card-mode)
-    (pop-to-buffer (current-buffer))))
 
 (provide 'postcard-mode)
 ;;; postcard-mode.el ends here
