@@ -94,7 +94,7 @@
                                             (1+ left-overlay-offset)))
                             ( temp-main-overlay
                               (make-overlay main-overlay-offset
-                                            (1+ main-overlay-offset)))
+                                            (point-max)))
                             ( temp-alist (list (cons 'width (window-width))
                                                (cons 'height (window-height))
                                                (cons 'main-overlay temp-main-overlay)
@@ -187,6 +187,29 @@
   (wcn/redraw-all-windows))
 
 ;; Picture
+
+;; Relevant:
+;; frame-set-background-mode
+;; frame-background-mode (variable)
+;; (custom-theme-set-variables
+;;  'gruber-darker
+;;  '(frame-brackground-mode (quote dark)))
+
+;; Should be it... but apparently isn't
+;; (frame-terminal-default-bg-mode (selected-frame))
+
+;; Better (?)
+;; (custom-variable-theme-value 'frame-brackground-mode)
+
+;;
+;;
+
+
+;; (< (cl-loop for color in (color-values (face-attribute 'default :background))
+;;             maximizing color)
+;;    ;; 65280 Maximum
+;;    35280
+;;    )
 
 (defvar picture-card-picutre-file
   (concat (file-name-directory
