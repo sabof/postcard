@@ -12,7 +12,7 @@
 (defvar postcard--debug nil)
 
 ;; -----------------------------------------------------------------------------
-;; Window Change Notify
+;; Postcard
 ;; -----------------------------------------------------------------------------
 
 (defun postcard--clear-overlays ()
@@ -92,7 +92,7 @@
                  'invisible nil)
 
     (overlay-put postcard-current-newline-overlay
-                 'display nil)
+                 'display "\n")
     (overlay-put postcard-current-newline-overlay
                  'invisible nil)
     ))
@@ -116,6 +116,47 @@
   ;; (setq tmp3 postcard-current-left-overlay)
   )
 
+(defun postcard--initialize-overlay-alist ()
+  (let* (( top-overlay-offset 1)
+         ( newline-overlay-offset 2)
+         ( left-overlay-offset 3)
+         ( main-overlay-offset 4)
+         ( temp-top-overlay
+           (make-overlay top-overlay-offset
+                         (1+ top-overlay-offset)))
+         ( temp-newline-overlay
+           (make-overlay newline-overlay-offset
+                         (1+ newline-overlay-offset)))
+         ( temp-left-overlay
+           (make-overlay left-overlay-offset
+                         (1+ left-overlay-offset)))
+         ( temp-main-overlay
+           (make-overlay main-overlay-offset
+                         (point-max)))
+         ( temp-alist (list (cons 'width (window-width))
+                            (cons 'height (window-height))
+                            (cons 'main-overlay temp-main-overlay)
+                            (cons 'left-overlay temp-left-overlay)
+                            (cons 'newline-overlay temp-newline-overlay)
+                            (cons 'top-overlay temp-top-overlay)
+                            )))
+
+    (overlay-put temp-main-overlay 'window (selected-window))
+    (overlay-put temp-top-overlay 'window (selected-window))
+    (overlay-put temp-left-overlay 'window (selected-window))
+    (overlay-put temp-newline-overlay 'window (selected-window))
+
+    (overlay-put temp-top-overlay 'invisible t)
+    (overlay-put temp-left-overlay 'invisible t)
+    (overlay-put temp-newline-overlay 'invisible t)
+
+    (overlay-put temp-newline-overlay 'line-height t)
+
+    (setq postcard-window-alist
+          (cl-acons (selected-window) temp-alist
+                    postcard-window-alist))
+    temp-alist))
+
 (cl-defun postcard-hook (&optional force)
   ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
   (postcard--cleanup)
@@ -123,50 +164,9 @@
          ( do-redraw force)
          ( alist (or (cdr (assq (selected-window)
                                 postcard-window-alist))
-                     (let* (( top-overlay-offset 1)
-                            ( newline-overlay-offset 2)
-                            ( left-overlay-offset 3)
-                            ( main-overlay-offset 4)
-                            ( temp-top-overlay
-                              (make-overlay top-overlay-offset
-                                            (1+ top-overlay-offset)))
-                            ( temp-newline-overlay
-                              (make-overlay newline-overlay-offset
-                                            (1+ newline-overlay-offset)))
-                            ( temp-left-overlay
-                              (make-overlay left-overlay-offset
-                                            (1+ left-overlay-offset)))
-                            ( temp-main-overlay
-                              (make-overlay main-overlay-offset
-                                            (point-max)))
-                            ( temp-alist (list (cons 'width (window-width))
-                                               (cons 'height (window-height))
-                                               (cons 'main-overlay temp-main-overlay)
-                                               (cons 'left-overlay temp-left-overlay)
-                                               (cons 'newline-overlay temp-newline-overlay)
-                                               (cons 'top-overlay temp-top-overlay)
-                                               )))
-
-                       (overlay-put temp-main-overlay 'window (selected-window))
-
-                       (overlay-put temp-top-overlay 'window (selected-window))
-                       (overlay-put temp-left-overlay 'window (selected-window))
-                       (overlay-put temp-newline-overlay 'window (selected-window))
-
-                       ;; (overlay-put temp-top-overlay 'display `(space :height (51) :width 1))
-                       ;; (overlay-put temp-left-overlay 'display `(space :height 1 :width (51)))
-
-                       (overlay-put temp-top-overlay 'invisible t)
-                       (overlay-put temp-left-overlay 'invisible t)
-                       (overlay-put temp-newline-overlay 'invisible t)
-                       (overlay-put temp-newline-overlay 'line-height t)
-
-                       (setq postcard-window-alist
-                             (cl-acons (selected-window) temp-alist
-                                       postcard-window-alist))
+                     (progn
                        (setq do-redraw t)
-                       temp-alist
-                       )))
+                       (postcard--initialize-overlay-alist))))
          ( ov (cdr (assq 'main-overlay alist))))
     (unless do-redraw
       (setq do-redraw
@@ -204,7 +204,7 @@
     "Window change notify mode"
   (let ((inhibit-read-only t))
     (erase-buffer)
-    (insert "$\n$\n"))
+    (insert "$$$\n"))
   (setq-local auto-window-vscroll nil)
   (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
@@ -279,6 +279,12 @@
     "Picture" "Picture"
   (setq postcard-function 'postcard-picture-fill)
   (postcard--redraw-all-windows))
+
+(defun show-postcard-picture ()
+  (interactive)
+  (with-current-buffer (get-buffer-create "*postcard*")
+    (postcard-picture-mode)
+    (pop-to-buffer (current-buffer))))
 
 (provide 'postcard-mode)
 ;;; postcard-mode.el ends here
