@@ -62,6 +62,34 @@
                  'invisible nil)
     ))
 
+;; Relevant:
+;; frame-set-background-mode
+;; frame-background-mode (variable)
+;; (custom-theme-set-variables
+;;  'gruber-darker
+;;  '(frame-brackground-mode (quote dark)))
+
+;; Should be... but apparently isn't
+;; (frame-terminal-default-bg-mode (selected-frame))
+
+;; Also should be it, but seems unreliable
+;; (custom-variable-theme-value 'frame-brackground-mode)
+
+;;
+;; (cl-every 'wcn/color-dark-p
+;;           '("#555" "#500" "#050"))
+
+;; (cl-notany 'wcn/color-dark-p
+;;            '("#fff" "#ff0" "#faa"))
+
+(defun wcn/color-dark-p (color)
+  (< (cl-loop for color in (color-values color)
+              maximizing color)
+     ;; 65280 Maximum
+     35280
+     ))
+
+
 (defun window-change-notify-set-left-margin (width &optional pixels)
   (cl-assert window-change-notify-current-left-overlay)
   (if (<= width 0)
@@ -188,39 +216,24 @@
 
 ;; Picture
 
-;; Relevant:
-;; frame-set-background-mode
-;; frame-background-mode (variable)
-;; (custom-theme-set-variables
-;;  'gruber-darker
-;;  '(frame-brackground-mode (quote dark)))
-
-;; Should be it... but apparently isn't
-;; (frame-terminal-default-bg-mode (selected-frame))
-
-;; Better (?)
-;; (custom-variable-theme-value 'frame-brackground-mode)
-
-;;
-;;
-
-
-;; (< (cl-loop for color in (color-values (face-attribute 'default :background))
-;;             maximizing color)
-;;    ;; 65280 Maximum
-;;    35280
-;;    )
-
-(defvar picture-card-picutre-file
-  (concat (file-name-directory
-           (or load-file-name buffer-file-name))
-          "1980-mad-max-poster2.jpg"))
+(defvar picture-card-picutre
+  (let* ((root (file-name-directory
+                (or load-file-name buffer-file-name))))
+    (lambda ()
+      (if (wcn/color-dark-p (face-attribute 'default :background))
+          (concat root "logo-dark.png")
+        (concat root "logo-light.png")))))
 
 (defun picture-card-fill ()
   (let* (( window-width (es-window-inside-pixel-width))
          ( window-height (es-window-inside-pixel-height))
-         ( image-type (image-type picture-card-picutre-file nil nil))
-         ( image-spec (list 'image :type image-type :file picture-card-picutre-file))
+         ( image-file (if (stringp picture-card-picutre)
+                          picture-card-picutre
+                        (funcall picture-card-picutre)))
+         ( image-type (image-type image-file nil nil))
+         ( image-spec (list 'image
+                            :type image-type
+                            :file image-file))
          ( image-dimensions (image-size image-spec t))
          ( x (/ (- window-width (car image-dimensions)) 2))
          ( y (/ (- window-height (cdr image-dimensions)) 2)))
