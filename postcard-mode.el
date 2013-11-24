@@ -1,26 +1,26 @@
 ;; -*- lexical-binding: t -*-
 (require 'cl-lib)
 
-(defvar-local window-change-notify-function 'ignore)
-(defvar-local window-change-notify-format 'characters)
-(defvar-local window-change-notify-window-alist nil)
+(defvar-local postcard-function 'ignore)
+(defvar-local postcard-format 'characters)
+(defvar-local postcard-window-alist nil)
 
-(defvar window-change-notify-current-main-overlay nil)
-(defvar window-change-notify-current-left-overlay nil)
-(defvar window-change-notify-current-top-overlay nil)
-(defvar window-change-notify-current-newline-overlay nil)
-(defvar wcn/debug nil)
+(defvar postcard-current-main-overlay nil)
+(defvar postcard-current-left-overlay nil)
+(defvar postcard-current-top-overlay nil)
+(defvar postcard-current-newline-overlay nil)
+(defvar postcard--debug nil)
 
 ;; -----------------------------------------------------------------------------
 ;; Window Change Notify
 ;; -----------------------------------------------------------------------------
 
-(defun wcn/clear-overlays ()
+(defun postcard--clear-overlays ()
   (delete-all-overlays)
-  (setq window-change-notify-window-alist))
+  (setq postcard-window-alist))
 
-(defun wcn/cleanup ()
-  (setq window-change-notify-window-alist
+(defun postcard--cleanup ()
+  (setq postcard-window-alist
         (cl-remove-if-not
          (lambda (pair)
            (or (window-live-p (car pair))
@@ -30,19 +30,19 @@
                  (delete-overlay (cdr (assq 'main-overlay (cdr pair))))
                  (delete-overlay (cdr (assq 'left-overlay (cdr pair))))
                  nil)))
-         window-change-notify-window-alist)))
+         postcard-window-alist)))
 
-(defun wcn/redraw-all-windows ()
-  (wcn/clear-overlays)
+(defun postcard--redraw-all-windows ()
+  (postcard--clear-overlays)
   (cl-dolist (window (get-buffer-window-list nil nil t))
     (with-selected-window window
-      (window-change-notify-hook t))))
+      (postcard-hook t))))
 
-(defun wcn/post-command-hook ()
+(defun postcard--post-command-hook ()
   (deactivate-mark)
   (set-window-start nil (point-min)))
 
-(defun wcn/revert ()
+(defun postcard--revert ()
   (interactive)
   (funcall major-mode))
 
@@ -60,69 +60,69 @@
 ;; (custom-variable-theme-value 'frame-brackground-mode)
 
 ;;
-;; (cl-every 'wcn/color-dark-p
+;; (cl-every 'postcard--color-dark-p
 ;;           '("#555" "#500" "#050"))
 
-;; (cl-notany 'wcn/color-dark-p
+;; (cl-notany 'postcard--color-dark-p
 ;;            '("#fff" "#ff0" "#faa"))
 
-(defun wcn/color-dark-p (color)
+(defun postcard--color-dark-p (color)
   (< (cl-loop for color in (color-values color)
               maximizing color)
      ;; 65280 Maximum
      35280
      ))
 
-(defun window-change-notify-set-top-margin (height &optional pixels)
-  (cl-assert (and window-change-notify-current-newline-overlay
-                  window-change-notify-current-top-overlay))
+(defun postcard-set-top-margin (height &optional pixels)
+  (cl-assert (and postcard-current-newline-overlay
+                  postcard-current-top-overlay))
   (if (<= height 0)
       (progn
-        (overlay-put window-change-notify-current-top-overlay
+        (overlay-put postcard-current-top-overlay
                      'invisible t)
-        (overlay-put window-change-notify-current-newline-overlay
+        (overlay-put postcard-current-newline-overlay
                      'invisible t)
-        (overlay-put window-change-notify-current-top-overlay
+        (overlay-put postcard-current-top-overlay
                      'display '(space :width (0) :height (0)))
-        (overlay-put window-change-notify-current-newline-overlay
+        (overlay-put postcard-current-newline-overlay
                      'display '(space :width (0) :height (0))))
-    (overlay-put window-change-notify-current-top-overlay
+    (overlay-put postcard-current-top-overlay
                  'display `(space :height ,(if pixels (list height) height)))
-    (overlay-put window-change-notify-current-top-overlay
+    (overlay-put postcard-current-top-overlay
                  'invisible nil)
 
-    (overlay-put window-change-notify-current-newline-overlay
+    (overlay-put postcard-current-newline-overlay
                  'display nil)
-    (overlay-put window-change-notify-current-newline-overlay
+    (overlay-put postcard-current-newline-overlay
                  'invisible nil)
     ))
 
-(defun window-change-notify-set-left-margin (width &optional pixels)
-  (cl-assert window-change-notify-current-left-overlay)
+(defun postcard-set-left-margin (width &optional pixels)
+  (cl-assert postcard-current-left-overlay)
   (if (<= width 0)
 
       (progn
         ;; Invisible doesn't seem to do anything
-        ;; (overlay-put window-change-notify-current-left-overlay
+        ;; (overlay-put postcard-current-left-overlay
         ;;              'invisible t)
-        (overlay-put window-change-notify-current-left-overlay
+        (overlay-put postcard-current-left-overlay
                      'display '(space :width (0) :height (0))))
 
     (progn
-      (overlay-put window-change-notify-current-left-overlay
+      (overlay-put postcard-current-left-overlay
                    'display `(space :width ,(if pixels (list width) width)))
-      (overlay-put window-change-notify-current-left-overlay
+      (overlay-put postcard-current-left-overlay
                    'invisible nil)))
-  ;; (setq tmp3 window-change-notify-current-left-overlay)
+  ;; (setq tmp3 postcard-current-left-overlay)
   )
 
-(cl-defun window-change-notify-hook (&optional force)
+(cl-defun postcard-hook (&optional force)
   ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
-  (wcn/cleanup)
-  (let* (( redraw-func window-change-notify-function)
+  (postcard--cleanup)
+  (let* (( redraw-func postcard-function)
          ( do-redraw force)
          ( alist (or (cdr (assq (selected-window)
-                                window-change-notify-window-alist))
+                                postcard-window-alist))
                      (let* (( top-overlay-offset 1)
                             ( newline-overlay-offset 2)
                             ( left-overlay-offset 3)
@@ -161,9 +161,9 @@
                        (overlay-put temp-newline-overlay 'invisible t)
                        (overlay-put temp-newline-overlay 'line-height t)
 
-                       (setq window-change-notify-window-alist
+                       (setq postcard-window-alist
                              (cl-acons (selected-window) temp-alist
-                                       window-change-notify-window-alist))
+                                       postcard-window-alist))
                        (setq do-redraw t)
                        temp-alist
                        )))
@@ -173,12 +173,12 @@
             (or (not (equal (cdr (assq 'height alist)) (window-height)))
                 (not (equal (cdr (assq 'width alist)) (window-width))))))
     (when do-redraw
-      (let* (( window-change-notify-current-main-overlay ov)
-             ( window-change-notify-current-left-overlay
+      (let* (( postcard-current-main-overlay ov)
+             ( postcard-current-left-overlay
                (cdr (assq 'left-overlay alist)))
-             ( window-change-notify-current-top-overlay
+             ( postcard-current-top-overlay
                (cdr (assq 'top-overlay alist)))
-             ( window-change-notify-current-newline-overlay
+             ( postcard-current-newline-overlay
                (cdr (assq 'newline-overlay alist)))
              ( result (funcall redraw-func)))
         (when result
@@ -188,7 +188,7 @@
     (set-window-start nil (point-min))
     ))
 
-(defun wcn/report (&optional symbol)
+(defun postcard--report (&optional symbol)
   (set (or symbol 'tmp2)
        (mapcar (lambda (pair)
                  (if (overlayp (cdr pair))
@@ -197,9 +197,9 @@
                             (cdr pair)))
                    pair))
                (cdr (assoc (selected-window)
-                           window-change-notify-window-alist)))))
+                           postcard-window-alist)))))
 
-(define-derived-mode window-change-notify-mode special-mode
+(define-derived-mode postcard-mode special-mode
     "Window change notify mode"
     "Window change notify mode"
   (let ((inhibit-read-only t))
@@ -208,10 +208,10 @@
   (setq-local auto-window-vscroll nil)
   (setq-local cursor-type nil)
   (add-hook 'window-configuration-change-hook
-            'window-change-notify-hook nil t)
-  (local-set-key (kbd "g") 'wcn/revert)
+            'postcard-hook nil t)
+  (local-set-key (kbd "g") 'postcard--revert)
   (add-hook 'post-command-hook
-            'wcn/post-command-hook
+            'postcard--post-command-hook
             nil t)
   )
 
@@ -236,10 +236,10 @@
        (list 'face `(:foreground ,(es-color-random-hex)))))
     (buffer-string)))
 
-(define-derived-mode $-mode window-change-notify-mode
+(define-derived-mode $-mode postcard-mode
     "$" "$"
-  (setq window-change-notify-function '$-fill)
-  (wcn/redraw-all-windows))
+  (setq postcard-function '$-fill)
+  (postcard--redraw-all-windows))
 
 
 (defun $ ()
@@ -255,7 +255,7 @@
                 (or load-file-name buffer-file-name))))
     (lambda ()
       (condition-case error
-          (if (wcn/color-dark-p (face-attribute 'default :background))
+          (if (postcard--color-dark-p (face-attribute 'default :background))
               (concat root "logo-dark.png")
             (concat root "logo-light.png"))
         (error (concat root "logo-light.png"))))))
@@ -273,19 +273,19 @@
          ( image-dimensions (image-size image-spec t))
          ( x (/ (- window-width (car image-dimensions)) 2))
          ( y (/ (- window-height (cdr image-dimensions)) 2)))
-    (when wcn/debug
-      (overlay-put window-change-notify-current-top-overlay
+    (when postcard--debug
+      (overlay-put postcard-current-top-overlay
                    'face `(:background ,(es-color-random-hex)))
-      (overlay-put window-change-notify-current-left-overlay
+      (overlay-put postcard-current-left-overlay
                    'face `(:background ,(es-color-random-hex))))
-    (window-change-notify-set-top-margin y t)
-    (window-change-notify-set-left-margin x t)
+    (postcard-set-top-margin y t)
+    (postcard-set-left-margin x t)
     image-spec))
 
-(define-derived-mode picture-card-mode window-change-notify-mode
+(define-derived-mode picture-card-mode postcard-mode
     "Picture" "Picture"
-  (setq window-change-notify-function 'picture-card-fill)
-  (wcn/redraw-all-windows))
+  (setq postcard-function 'picture-card-fill)
+  (postcard--redraw-all-windows))
 
 (defun picuture-card ()
   (interactive)
@@ -293,5 +293,5 @@
     (picuture-card-mode)
     (pop-to-buffer (current-buffer))))
 
-(provide 'window-change-notify)
-;;; win-change-notify.el ends here
+(provide 'postcard-mode)
+;;; postcard-mode.el ends here
