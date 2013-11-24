@@ -9,6 +9,7 @@
 (defvar window-change-notify-current-left-overlay nil)
 (defvar window-change-notify-current-top-overlay nil)
 (defvar window-change-notify-current-newline-overlay nil)
+(defvar wcn/debug nil)
 
 ;; -----------------------------------------------------------------------------
 ;; Window Change Notify
@@ -45,23 +46,6 @@
   (interactive)
   (funcall major-mode))
 
-(defun window-change-notify-set-top-margin (height &optional pixels)
-  (cl-assert (and window-change-notify-current-newline-overlay
-                  window-change-notify-current-top-overlay))
-  (if (<= height 0)
-      (progn
-        (overlay-put window-change-notify-current-top-overlay
-                     'invisible t)
-        (overlay-put window-change-notify-current-newline-overlay
-                     'invisible t))
-    (overlay-put window-change-notify-current-top-overlay
-                 'display `(space :height ,(if pixels (list height) height)))
-    (overlay-put window-change-notify-current-top-overlay
-                 'invisible nil)
-    (overlay-put window-change-notify-current-newline-overlay
-                 'invisible nil)
-    ))
-
 ;; Relevant:
 ;; frame-set-background-mode
 ;; frame-background-mode (variable)
@@ -89,16 +73,48 @@
      35280
      ))
 
+(defun window-change-notify-set-top-margin (height &optional pixels)
+  (cl-assert (and window-change-notify-current-newline-overlay
+                  window-change-notify-current-top-overlay))
+  (if (<= height 0)
+      (progn
+        (overlay-put window-change-notify-current-top-overlay
+                     'invisible t)
+        (overlay-put window-change-notify-current-newline-overlay
+                     'invisible t)
+        (overlay-put window-change-notify-current-top-overlay
+                     'display '(space :width (0) :height (0)))
+        (overlay-put window-change-notify-current-newline-overlay
+                     'display '(space :width (0) :height (0))))
+    (overlay-put window-change-notify-current-top-overlay
+                 'display `(space :height ,(if pixels (list height) height)))
+    (overlay-put window-change-notify-current-top-overlay
+                 'invisible nil)
+
+    (overlay-put window-change-notify-current-newline-overlay
+                 'display nil)
+    (overlay-put window-change-notify-current-newline-overlay
+                 'invisible nil)
+    ))
 
 (defun window-change-notify-set-left-margin (width &optional pixels)
   (cl-assert window-change-notify-current-left-overlay)
   (if (<= width 0)
+
+      (progn
+        ;; Invisible doesn't seem to do anything
+        ;; (overlay-put window-change-notify-current-left-overlay
+        ;;              'invisible t)
+        (overlay-put window-change-notify-current-left-overlay
+                     'display '(space :width (0) :height (0))))
+
+    (progn
       (overlay-put window-change-notify-current-left-overlay
-                   'invisible t)
-    (overlay-put window-change-notify-current-left-overlay
-                 'display `(space :width ,(if pixels (list width) width)))
-    (overlay-put window-change-notify-current-left-overlay
-                 'invisible nil)))
+                   'display `(space :width ,(if pixels (list width) width)))
+      (overlay-put window-change-notify-current-left-overlay
+                   'invisible nil)))
+  ;; (setq tmp3 window-change-notify-current-left-overlay)
+  )
 
 (cl-defun window-change-notify-hook (&optional force)
   ;; FIXME: This runs once for every window. Not tragic, but still unnecessary.
@@ -172,6 +188,17 @@
     (set-window-start nil (point-min))
     ))
 
+(defun wcn/report (&optional symbol)
+  (set (or symbol 'tmp2)
+       (mapcar (lambda (pair)
+                 (if (overlayp (cdr pair))
+                     (cons (car pair)
+                           (overlay-properties
+                            (cdr pair)))
+                   pair))
+               (cdr (assoc (selected-window)
+                           window-change-notify-window-alist)))))
+
 (define-derived-mode window-change-notify-mode special-mode
     "Window change notify mode"
     "Window change notify mode"
@@ -214,15 +241,24 @@
   (setq window-change-notify-function '$-fill)
   (wcn/redraw-all-windows))
 
+
+(defun $ ()
+  (interactive)
+  (with-current-buffer (get-buffer-create "*$*")
+    ($-mode)
+    (pop-to-buffer (current-buffer))))
+
 ;; Picture
 
 (defvar picture-card-picutre
   (let* ((root (file-name-directory
                 (or load-file-name buffer-file-name))))
     (lambda ()
-      (if (wcn/color-dark-p (face-attribute 'default :background))
-          (concat root "logo-dark.png")
-        (concat root "logo-light.png")))))
+      (condition-case error
+          (if (wcn/color-dark-p (face-attribute 'default :background))
+              (concat root "logo-dark.png")
+            (concat root "logo-light.png"))
+        (error (concat root "logo-light.png"))))))
 
 (defun picture-card-fill ()
   (let* (( window-width (es-window-inside-pixel-width))
@@ -237,6 +273,11 @@
          ( image-dimensions (image-size image-spec t))
          ( x (/ (- window-width (car image-dimensions)) 2))
          ( y (/ (- window-height (cdr image-dimensions)) 2)))
+    (when wcn/debug
+      (overlay-put window-change-notify-current-top-overlay
+                   'face `(:background ,(es-color-random-hex)))
+      (overlay-put window-change-notify-current-left-overlay
+                   'face `(:background ,(es-color-random-hex))))
     (window-change-notify-set-top-margin y t)
     (window-change-notify-set-left-margin x t)
     image-spec))
@@ -245,6 +286,12 @@
     "Picture" "Picture"
   (setq window-change-notify-function 'picture-card-fill)
   (wcn/redraw-all-windows))
+
+(defun picuture-card ()
+  (interactive)
+  (with-current-buffer (get-buffer-create "*picture-card*")
+    (picuture-card-mode)
+    (pop-to-buffer (current-buffer))))
 
 (provide 'window-change-notify)
 ;;; win-change-notify.el ends here
