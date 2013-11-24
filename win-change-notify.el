@@ -282,7 +282,7 @@
     (window-change-notify-set-left-margin x t)
     image-spec))
 
-(define-derived-mode picuture-card-mode window-change-notify-mode
+(define-derived-mode picture-card-mode window-change-notify-mode
     "Picture" "Picture"
   (setq window-change-notify-function 'picture-card-fill)
   (wcn/redraw-all-windows))
