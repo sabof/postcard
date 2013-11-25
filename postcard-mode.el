@@ -253,7 +253,9 @@
             (concat root "logo-light.png"))
         (error (concat root "logo-light.png"))))))
 
-(defun postcard-picture-fill ()
+(cl-defun postcard-picture-fill ()
+  (unless (display-graphic-p)
+    (cl-return-from postcard-picture-fill))
   (let* (( window-width (es-window-inside-pixel-width))
          ( window-height (es-window-inside-pixel-height))
          ( image-file (if (stringp postcard-picture-picutre)
