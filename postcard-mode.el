@@ -210,6 +210,9 @@
   (add-hook 'window-configuration-change-hook
             'postcard-hook nil t)
   (local-set-key (kbd "g") 'postcard--revert)
+  (local-set-key (kbd "<down-mouse-1>") 'ignore)
+  (local-set-key (kbd "<mouse-1>") 'mouse-select-window)
+  (local-set-key (kbd "<drag-mouse-1>") 'ignore)
   (add-hook 'post-command-hook
             'postcard--post-command-hook
             nil t)
